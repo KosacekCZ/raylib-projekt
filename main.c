@@ -1,141 +1,90 @@
+#include <math.h>
+
 #include "raylib.h"
 #include <stdlib.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <time.h>
 
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 600
-#define SNAKE_SIZE 20
-
-struct SnakeTile {
-    Vector2 vec;
-    Color color;
+struct Entity {
+    Vector2 pos;
+    Vector2 vel;
+    float angle;
+    float acceleration;
+    int health;
+    void draw();
+    void update();
 };
 
-struct Apple {
-    Vector2 position;
-    Color color;
+struct Player {
+    struct Entity entity;
+    void draw() {
+        DrawPolyLines(entity.pos, 3, 30, entity.angle + 270.0f, RAYWHITE);
+    }
+
+    void update() {
+        if (entity.vel.x > 0 && entity.pos.x < 800) entity.pos.x += entity.vel.x;
+        if (entity.vel.x < 0 && entity.pos.x > 0) entity.pos.x += entity.vel.x;
+        if (entity.vel.y > 0 && entity.pos.y < 800) entity.pos.y += entity.vel.y;
+        if (entity.vel.y < 0 && entity.pos.y > 0) entity.pos.y += entity.vel.y;
+
+        if (!IsKeyDown(KEY_S)) {
+            // Deaccelerate
+            if (entity.vel.x > 0.0) {entity.vel.x = (entity.vel.x < 0.1 ? 0.0f : (entity.vel.x -= 0.05f));}
+            if (entity.vel.x < 0.0) {entity.vel.x = (entity.vel.x > -0.1 ? 0.0f : (entity.vel.x += 0.05f));}
+            if (entity.vel.y > 0.0) {entity.vel.y = (entity.vel.y < 0.1 ? 0.0f : (entity.vel.y -= 0.05f));}
+            if (entity.vel.y < 0.0) {entity.vel.y = (entity.vel.y > -0.1 ? 0.0f : (entity.vel.y += 0.05f));}
+        }
+    }
 };
 
-struct SnakeTile *snake = NULL;
-int snakeLength = 1;
-struct Apple apple;
-char close = 1;
-int direction = 0;
+int main() {printf("stop");
+    bool running = true;
 
-void reallocSnakeArr(struct SnakeTile **arr, int size) {
-    if (arr == NULL) {
-        exit(EXIT_FAILURE);
-    }
+    InitWindow(800, 800, "Snek");
+    SetTargetFPS(60);
+    srand(time(NULL));
 
-    struct SnakeTile *temp = (struct SnakeTile *)realloc(*arr, sizeof(struct SnakeTile) * size);
-    if (temp == NULL) {
-        exit(EXIT_FAILURE);
-    }
-    *arr = temp;
-}
-
-void spawnSnake(int x, int y) {
-    snake[0].vec = (Vector2){x, y};
-    snake[0].color = GREEN;
-}
-
-void spawnApple() {
-    apple.position = (Vector2){
-        (float)(rand() % (SCREEN_WIDTH / SNAKE_SIZE)) * SNAKE_SIZE,
-        (float)(rand() % (SCREEN_HEIGHT / SNAKE_SIZE)) * SNAKE_SIZE
-    };
-    apple.color = RED;
-}
-
-void moveSnake() {
-    for (int i = snakeLength - 1; i > 0; i--) {
-        snake[i].vec = snake[i - 1].vec;
-        snake[i].color = snake[i - 1].color;
-    }
+    struct Player player = {
+        {
+            400,
+            400,
+            0,
+            0,
+            0.0f,
+            0.1f,
+            10 }};
 
 
-    if (direction == 0) {
-        snake[0].vec.x += SNAKE_SIZE;
-    } else if (direction == 1) {
-        snake[0].vec.y -= SNAKE_SIZE;
-    } else if (direction == 2) {
-        snake[0].vec.x -= SNAKE_SIZE;
-    } else if (direction == 3) {
-        snake[0].vec.y += SNAKE_SIZE;
-    }
-}
-
-void checkAppleCollision() {
-    if (CheckCollisionRecs((Rectangle){snake[0].vec.x, snake[0].vec.y, SNAKE_SIZE, SNAKE_SIZE},
-                           (Rectangle){apple.position.x, apple.position.y, SNAKE_SIZE, SNAKE_SIZE})) {
-
-        snakeLength++;
-        reallocSnakeArr(&snake, snakeLength);
-        spawnApple();
-    }
-}
-
-int checkWallCollision() {
-    if (snake[0].vec.x < 0 || snake[0].vec.x >= SCREEN_WIDTH ||
-        snake[0].vec.y < 0 || snake[0].vec.y >= SCREEN_HEIGHT) {
-        return 1;
-    }
-    return 0;
-}
-
-int checkSelfCollision() {
-    for (int i = 1; i < snakeLength; i++) {
-        if (snake[i].vec.x == snake[0].vec.x && snake[i].vec.y == snake[0].vec.y) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-int main() {
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Snek");
-    SetTargetFPS(10);
-    srand((unsigned int)time(NULL));
-
-
-    snake = (struct SnakeTile *)malloc(sizeof(struct SnakeTile) * snakeLength);
-    if (snake == NULL) {
-        exit(EXIT_FAILURE);
-    }
-
-    spawnSnake(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
-    spawnApple();
-
-    // Main game loop
-    while (!WindowShouldClose() && close) {
-
-        if ((IsKeyPressed(KEY_D) || IsKeyDown(KEY_D)) && direction != 2) direction = 0;
-        if ((IsKeyPressed(KEY_W) || IsKeyDown(KEY_W)) && direction != 3) direction = 1;
-        if ((IsKeyPressed(KEY_A) || IsKeyDown(KEY_A)) && direction != 0) direction = 2;
-        if ((IsKeyPressed(KEY_S) || IsKeyDown(KEY_S)) && direction != 1) direction = 3;
-
-
-        moveSnake();
-        checkAppleCollision();
-
-        if (checkWallCollision() || checkSelfCollision()) {
-            close = 0;
-        }
-
+    while (running) {
         BeginDrawing();
         ClearBackground(BLACK);
 
-        for (int i = 0; i < snakeLength; i++) {
-            DrawRectangleV(snake[i].vec, (Vector2){SNAKE_SIZE, SNAKE_SIZE}, snake[i].color);
+        player.update();
+        player.draw();
+
+        EndDrawing();
+        if (IsKeyDown(KEY_W)) {
+            //shoot
         }
 
-        DrawRectangleV(apple.position, (Vector2){SNAKE_SIZE, SNAKE_SIZE}, apple.color);
-        EndDrawing();
+        if (IsKeyDown(KEY_S)) {
+            float angleInRadians = player.entity.angle * (M_PI / 180.0f); // Convert angle from degrees to radians
+            if (abs(player.entity.vel.x) < 10.0f)
+                player.entity.vel.x += cos(angleInRadians - M_PI_2) * player.entity.acceleration; // Moving backwards in angle direction
+            if (abs(player.entity.vel.y) < 10.0f)
+                player.entity.vel.y += sin(angleInRadians - M_PI_2) * player.entity.acceleration; // Moving backwards in angle direction
+        }
+
+        if (IsKeyDown(KEY_A)) {
+            player.entity.angle -= 5;
+        }
+        if (IsKeyDown(KEY_D)) {
+            player.entity.angle += 5;
+        }
+
+        if (IsKeyPressed(KEY_ESCAPE)) running = false;
     }
 
 
-    free(snake);
-    CloseWindow();
-    return 0;
 }
